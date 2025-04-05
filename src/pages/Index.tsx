@@ -1,5 +1,4 @@
 
-import React from 'react';
 import ModeCard from '@/components/ModeCard';
 import { Book, Heart, Info, ShoppingBag } from 'lucide-react';
 
@@ -42,7 +41,7 @@ const Index = () => {
           Sahayak
         </h1>
         <p className="text-xl md:text-2xl text-muted-foreground">
-          Your AI-powered wisdom companion
+          An AI-Powered Companion for Senior Citizens
         </p>
       </header>
 
