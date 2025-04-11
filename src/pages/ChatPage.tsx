@@ -1,10 +1,9 @@
-
-import React, { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
 import ChatInterface from '@/components/ChatInterface';
 import LocationPrompt from '@/components/LocationPrompt';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Book, Heart, Info, ShoppingBag } from 'lucide-react';
+import React, { useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 
 interface ModeConfig {
   name: string;
@@ -18,6 +17,7 @@ const ChatPage = () => {
   const navigate = useNavigate();
   const [showLocationPrompt, setShowLocationPrompt] = useState(false);
   const [location, setLocation] = useState<string | null>(null);
+  const [selectedLang, setSelectedLang] = useState('en-IN');
 
   const modeConfigs: Record<string, ModeConfig> = {
     religious: {
@@ -59,40 +59,64 @@ const ChatPage = () => {
 
   return (
     <div className="flex flex-col h-screen">
-      <header className="flex items-center p-4 border-b" style={{ backgroundColor: `${currentMode.color}10` }}>
-        <Button 
-          variant="ghost" 
-          size="icon"
-          onClick={() => navigate('/')}
-          className="mr-4"
-        >
-          <ArrowLeft className="h-12 w-12 md:h-15 md:w-15" />
-        </Button>
-        
-        <div className="flex items-center justify-center flex-grow">
-          <div 
-            className="w-14 h-14 rounded-full flex items-center justify-center text-white mr-3"
-            style={{ backgroundColor: currentMode.color }}
+      <header className="flex items-center justify-between p-4 border-b" style={{ backgroundColor: `${currentMode.color}10` }}>
+        {/* Back + Title */}
+        <div className="flex items-center">
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={() => navigate('/')}
+            className="mr-4"
           >
-            {currentMode.icon}
+            <ArrowLeft className="h-12 w-12 md:h-15 md:w-15" />
+          </Button>
+
+          <div className="flex items-center">
+            <div 
+              className="w-14 h-14 rounded-full flex items-center justify-center text-white mr-3"
+              style={{ backgroundColor: currentMode.color }}
+            >
+              {currentMode.icon}
+            </div>
+            <h1 className="text-3xl md:text-4xl font-bold">{currentMode.name}</h1>
           </div>
-          <h1 className="text-3xl md:text-4xl font-bold">{currentMode.name}</h1>
         </div>
-        
-        {location && (
-          <div className="ml-auto text-lg text-muted-foreground hidden md:block">
-            <span>Location: {location}</span>
-          </div>
-        )}
+
+        {/* Location and Language Selector */}
+        <div className="flex flex-col items-end gap-2">
+          {location && (
+            <div className="text-lg text-muted-foreground hidden md:block">
+              <span>Location: {location}</span>
+            </div>
+          )}
+          <select
+            value={selectedLang}
+            onChange={(e) => setSelectedLang(e.target.value)}
+            className="border rounded p-2 text-base"
+          >
+            <option value="en-IN">English</option>
+            <option value="hi-IN">Hindi (हिन्दी)</option>
+            <option value="bn-IN">Bengali (বাংলা)</option>
+            <option value="ta-IN">Tamil (தமிழ்)</option>
+            <option value="te-IN">Telugu (తెలుగు)</option>
+            <option value="mr-IN">Marathi (मराठी)</option>
+            <option value="gu-IN">Gujarati (ગુજરાતી)</option>
+            <option value="ml-IN">Malayalam (മലയാളം)</option>
+            <option value="kn-IN">Kannada (ಕನ್ನಡ)</option>
+            <option value="pa-IN">Punjabi (ਪੰਜਾਬੀ)</option>
+            <option value="ur-IN">Urdu (اُردُو)</option>
+          </select>
+        </div>
       </header>
-      
+
       <main className="flex-grow overflow-hidden">
         <ChatInterface 
           mode={currentMode} 
           onLocationRequest={mode === 'shopping' ? handleLocationRequest : undefined}
+          selectedLang={selectedLang}
         />
       </main>
-      
+
       <LocationPrompt 
         isOpen={showLocationPrompt}
         onClose={() => setShowLocationPrompt(false)}

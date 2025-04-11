@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -19,6 +18,7 @@ interface ChatInterfaceProps {
     systemPrompt: string;
   };
   onLocationRequest?: () => void;
+  selectedLang: string;
 }
 
 declare global {
@@ -28,14 +28,14 @@ declare global {
   }
 }
 
-const ChatInterface = ({ mode, onLocationRequest }: ChatInterfaceProps) => {
+const ChatInterface = ({ mode, onLocationRequest, selectedLang }: ChatInterfaceProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [apiKey, setApiKey] = useState<string>('');
-  
+
   // Initialize with a welcome message
   useEffect(() => {
     const welcomeMessage = {
@@ -43,27 +43,23 @@ const ChatInterface = ({ mode, onLocationRequest }: ChatInterfaceProps) => {
       isUser: false,
       timestamp: new Date()
     };
-    
+
     setMessages([welcomeMessage]);
-    
-    // Check for API key in local storage
+
     const storedApiKey = localStorage.getItem('geminiApiKey');
     if (storedApiKey) {
       setApiKey(storedApiKey);
     } else {
-      // Set the default API key from your provided value
       const defaultApiKey = 'AIzaSyD5j3fIDPEsCtJcD0N7HQvkviuQZbXlquM';
       localStorage.setItem('geminiApiKey', defaultApiKey);
       setApiKey(defaultApiKey);
     }
   }, [mode.name]);
 
-  // Auto scroll to bottom of messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Speech recognition setup
   useEffect(() => {
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
       console.log('Speech recognition not supported');
@@ -74,14 +70,13 @@ const ChatInterface = ({ mode, onLocationRequest }: ChatInterfaceProps) => {
     const recognition = new SpeechRecognition();
     recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.lang = 'en-US';
+    recognition.lang = selectedLang;
 
     recognition.onresult = (event: any) => {
       const transcript = Array.from(event.results)
         .map((result: any) => result[0])
         .map((result) => result.transcript)
         .join('');
-      
       setInput(transcript);
     };
 
@@ -96,28 +91,88 @@ const ChatInterface = ({ mode, onLocationRequest }: ChatInterfaceProps) => {
     return () => {
       recognition.stop();
     };
-  }, [isListening]);
+  }, [isListening, selectedLang]);
 
-  // Handle speech synthesis
-  const speakResponse = (text: string) => {
-    if ('speechSynthesis' in window) {
+  const speakResponse = async (text: string) => {
+    const synth = window.speechSynthesis;
+  
+    const speakNow = () => {
       const utterance = new SpeechSynthesisUtterance(text);
-      
-      // Try to get a more natural voice
-      const voices = window.speechSynthesis.getVoices();
-      const preferredVoice = voices.find(voice => 
-        voice.name.includes('Google') || 
-        voice.name.includes('Natural') || 
-        voice.name.includes('Female')
-      );
-      
-      if (preferredVoice) {
-        utterance.voice = preferredVoice;
-      }
-      
-      utterance.rate = 0.9; // Slightly slower
+      const voices = synth.getVoices();
+  
+      const preferredVoice =
+        voices.find(v => v.lang === selectedLang) ||
+        voices.find(v => v.lang.startsWith(selectedLang.split('-')[0])) ||
+        voices.find(v => v.name.includes("Google")) ||
+        voices[0];
+  
+      if (preferredVoice) utterance.voice = preferredVoice;
+  
+      utterance.rate = 0.9;
       utterance.pitch = 1;
-      window.speechSynthesis.speak(utterance);
+  
+      synth.cancel();
+      synth.speak(utterance);
+    };
+  
+    try {
+      if (synth.getVoices().length === 0) {
+        synth.onvoiceschanged = speakNow;
+        synth.getVoices(); // Trigger loading
+      } else {
+        speakNow();
+      }
+  
+      // fallback: if no voices or synth fails
+      setTimeout(async () => {
+        if (!synth.speaking) {
+          console.warn("TTS failed — falling back to gTTS");
+          const langCode = selectedLang.split('-')[0];
+          const res = await fetch("http://localhost:5000/api/tts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text, lang: langCode }),
+          });
+  
+          if (res.ok) {
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const audio = new Audio(url);
+            audio.play();
+          } else {
+            console.error("gTTS API failed");
+          }
+        }
+      }, 1500); // wait for 1.5s to see if browser voice works
+    } catch (err) {
+      console.error("Speech error:", err);
+    }
+  };
+  
+  
+
+  const translateText = async (text: string, targetLang: string): Promise<string> => {
+    const langCode = targetLang.split('-')[0];
+    const supported = ['hi', 'es', 'fr', 'de', 'it', 'pt', 'ru', 'ar', 'zh'];
+    if (!supported.includes(langCode)) return text;
+
+
+    try {
+      const res = await fetch('https://libretranslate.de/translate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          q: text,
+          source: 'en',
+          target: langCode,
+          format: 'text',
+        }),
+      });
+      const data = await res.json();
+      return data.translatedText;
+    } catch (err) {
+      console.error('Translation failed:', err);
+      return text;
     }
   };
 
@@ -131,31 +186,23 @@ const ChatInterface = ({ mode, onLocationRequest }: ChatInterfaceProps) => {
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    
     if (input.trim() === '') return;
-    
+
     const userMessage = {
       text: input,
       isUser: true,
       timestamp: new Date()
     };
-    
+
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
-    
-    // Check for location request in shopping mode
-    if (mode.name === "Shopping Helper" && 
-        (input.toLowerCase().includes("order") || 
-         input.toLowerCase().includes("buy") || 
-         input.toLowerCase().includes("purchase"))) {
-      if (onLocationRequest) {
-        onLocationRequest();
-      }
+
+    if (mode.name === "Shopping Helper" && (input.toLowerCase().includes("order") || input.toLowerCase().includes("buy") || input.toLowerCase().includes("purchase"))) {
+      if (onLocationRequest) onLocationRequest();
     }
-    
+
     try {
-      // Make actual API call to Gemini
       const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent', {
         method: 'POST',
         headers: {
@@ -183,18 +230,16 @@ const ChatInterface = ({ mode, onLocationRequest }: ChatInterfaceProps) => {
           }
         })
       });
-      
+
       const data = await response.json();
-      
       let responseText = "Sorry, I encountered an error. Please try again later.";
-      
+
       if (data.candidates && data.candidates[0] && data.candidates[0].content) {
         responseText = data.candidates[0].content.parts[0].text;
       } else if (data.error) {
         console.error('API Error:', data.error);
         responseText = `Error: ${data.error.message || 'Unknown error occurred'}`;
-        
-        // If API key is invalid, prompt for a new one
+
         if (data.error.status === 'INVALID_ARGUMENT' || data.error.status === 'PERMISSION_DENIED') {
           const newKey = prompt("Your API key seems invalid. Please enter a valid Gemini API Key:");
           if (newKey) {
@@ -204,16 +249,17 @@ const ChatInterface = ({ mode, onLocationRequest }: ChatInterfaceProps) => {
           }
         }
       }
-      
+
+      const translatedText = await translateText(responseText, selectedLang);
       const assistantMessage = {
-        text: responseText,
+        text: translatedText,
         isUser: false,
         timestamp: new Date()
       };
-      
+
       setMessages(prev => [...prev, assistantMessage]);
-      speakResponse(responseText);
-      
+      speakResponse(translatedText);
+
     } catch (error) {
       console.error('Error:', error);
       setMessages(prev => [...prev, {
@@ -231,21 +277,9 @@ const ChatInterface = ({ mode, onLocationRequest }: ChatInterfaceProps) => {
       <ScrollArea className="flex-grow p-4">
         <div className="space-y-4">
           {messages.map((message, index) => (
-            <div
-              key={index}
-              className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}
-            >
-              <div
-                className={`max-w-[80%] rounded-xl p-4 ${
-                  message.isUser
-                    ? `bg-primary text-white`
-                    : 'bg-muted'
-                }`}
-                style={message.isUser ? {} : { backgroundColor: `${mode.color}20` }}
-              >
-                <p className="text-2xl">
-                  {message.text}
-                </p>
+            <div key={index} className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}>
+              <div className={`max-w-[80%] rounded-xl p-4 ${message.isUser ? `bg-primary text-white` : 'bg-muted'}`} style={message.isUser ? {} : { backgroundColor: `${mode.color}20` }}>
+                <p className="text-2xl">{message.text}</p>
                 <div className={`text-sm mt-2 ${message.isUser ? 'text-primary-foreground' : 'text-muted-foreground'}`}>
                   {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </div>

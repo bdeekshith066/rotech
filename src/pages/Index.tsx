@@ -36,14 +36,41 @@ const Index = () => {
 
   return (
     <div className="min-h-screen flex flex-col p-6 md:p-10">
-      <header className="text-center mb-12">
-        <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-sahayak-blue to-sahayak-purple bg-clip-text text-transparent">
-          Sahayak
-        </h1>
-        <p className="text-xl md:text-2xl text-muted-foreground">
-          An AI-Powered Companion for Senior Citizens
-        </p>
-      </header>
+      <header className="mb-12">
+  {/* Top bar: Logo and Role Selector */}
+  <div className="flex justify-between items-center mb-6">
+    {/* Logo on the left */}
+    <div className="flex items-center">
+      <img
+        src="/image.png"
+        alt="Commins Logo"
+        className="h-14 w-auto mr-3"
+      />
+    </div>
+
+    {/* Role selector on the right */}
+    <div>
+  <select
+    className="border border-gray-300 rounded-lg px-4 py-2 text-base md:text-lg focus:outline-none focus:ring-2 focus:ring-sahayak-blue"
+    defaultValue="elder"
+  >
+    <option value="elder">Elder</option>
+    <option value="caretaker">Caretaker</option>
+  </select>
+</div>
+
+  </div>
+
+  {/* Title and subtitle centered below */}
+  <div className="text-center">
+    <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-sahayak-blue to-sahayak-purple bg-clip-text text-transparent">
+      Sahayak
+    </h1>
+    <p className="text-xl md:text-2xl text-muted-foreground">
+      An AI-Powered Companion for Senior Citizens
+    </p>
+  </div>
+</header>
 
       <main className="flex-grow flex flex-col items-center">
         <h2 className="text-2xl md:text-3xl mb-8 text-center">
