@@ -143,7 +143,7 @@ const ChatInterface = ({ mode, onLocationRequest, selectedLang }: ChatInterfaceP
             console.error("gTTS API failed");
           }
         }
-      }, 1500); // wait for 1.5s to see if browser voice works
+      }, 1500); // wait for 1.5s to see if browser voice worksss
     } catch (err) {
       console.error("Speech error:", err);
     }
